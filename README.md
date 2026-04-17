@@ -137,16 +137,9 @@ launchctl list | grep xero-mcp-bridge-refresh
 tail /tmp/xero-refresh.log
 ```
 
-### 5. Let the refresh script wire Claude up
+### 5. Wire up the Claude clients
 
-The first run of `xero-refresh.mjs` (triggered by `RunAtLoad` above) already:
-
-- Refreshed your access token into `xero-tokens.json`
-- Wrote the wrapper entry into both Claude configs:
-  - **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json` → `mcpServers.Xero`
-  - **Claude Code**: `~/.claude.json` → `mcpServers.xero`
-
-Each entry looks like this (paths will use your own username):
+The first run of `xero-refresh.mjs` (triggered by `RunAtLoad` above) refreshes the token into `xero-tokens.json` and writes the wrapper entry into both Claude configs. Each entry looks like this:
 
 ```json
 {
@@ -156,9 +149,45 @@ Each entry looks like this (paths will use your own username):
 }
 ```
 
-No bearer token is stored in the config — the wrapper reads it from `xero-tokens.json` at each child spawn and rotates it live.
+No bearer token in the config — the wrapper reads it from `xero-tokens.json` at each child spawn and rotates it live.
 
-**Restart Claude Desktop and start a new Claude Code session** so they spawn the wrapper. After that, token rotations are transparent.
+#### Claude Desktop (easy — auto-wires)
+
+The script writes `mcpServers.Xero` into `~/Library/Application Support/Claude/claude_desktop_config.json`. Desktop reads this at launch.
+
+- **Quit Claude Desktop** (Cmd+Q) and reopen. It spawns the wrapper and you're done.
+- Verify: open a new chat and ask "list my Xero organisations." A tool-use confirmation should appear.
+
+#### Claude Code (takes one more step)
+
+The script writes `mcpServers.xero` into `~/.claude.json`, which is the user-scoped location. This works in current Claude Code, but the *canonical* command — if your version ignores the direct edit, or if you'd rather not trust a script to touch `~/.claude.json` — is:
+
+```bash
+claude mcp add xero \
+  --scope user \
+  -- /Users/YOUR_USERNAME/.nvm/versions/node/v24.14.1/bin/node \
+     /Users/YOUR_USERNAME/AI/scripts/xero-mcp-bridge/xero-mcp-wrapper.mjs
+```
+
+Either way:
+
+1. **Start a new Claude Code session** (existing sessions won't pick up the new server).
+2. Run `/mcp` in the session — you should see `xero` listed.
+3. The first tool call will prompt you to trust/enable the server. Approve it. Tools show up on the next request.
+
+If `xero` doesn't appear:
+
+```bash
+# See exactly what Claude Code sees
+claude mcp list
+
+# If nothing Xero-related: run the `claude mcp add` command above
+# If it's listed but tools don't work: the wrapper probably can't find xero-tokens.json.
+#   Check: pgrep -fl xero-mcp-wrapper.mjs
+#   And:   cat /tmp/xero-refresh.log
+```
+
+After both clients are wired, **token rotations are transparent** — no more manual intervention.
 
 ### Managing the launchd agent later
 
