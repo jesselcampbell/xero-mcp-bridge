@@ -21,7 +21,9 @@ const CLIENT_ID = process.env.XERO_CLIENT_ID;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TOKEN_FILE = process.env.XERO_TOKEN_FILE || path.join(process.cwd(), "xero-tokens.json");
 const WRAPPER_PATH = path.join(HERE, "xero-mcp-wrapper.mjs");
-const NODE_BIN = process.execPath; // absolute path to the node running this script
+// Prefer XERO_NODE_BIN (a stable symlink like /opt/homebrew/bin/node) over
+// process.execPath (which resolves to a versioned realpath that breaks on upgrades).
+const NODE_BIN = process.env.XERO_NODE_BIN || process.execPath;
 const CLAUDE_DESKTOP_CONFIG = path.join(os.homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json");
 const CLAUDE_CODE_CONFIG = path.join(os.homedir(), ".claude.json");
 
